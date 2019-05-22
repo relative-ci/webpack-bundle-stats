@@ -1,29 +1,58 @@
 #!/usr/bin/env node
 
-const process = require('process');
 const path = require('path');
-const { readJSON, writeFile } = require('fs-extra');
 const yargs = require('yargs');
-const { extractDataFromWebpackStats } = require('@relative-ci/utils');
 
-const { createReport } = require('../');
+const run = require('./run');
 
-const DEFAULT_OUTPUT_FILEPATH = path.join(process.cwd(), 'webpack-bundle-stats.html');
+const DEFAULT_OUTPUT_DIR = './dist';
+
+const { demo } = yargs.parse();
+
+if (demo) {
+  run({
+    html: true,
+    json: true,
+    outDir: DEFAULT_OUTPUT_DIR,
+    artifactFilepaths: [
+      path.resolve(__dirname, '../__fixtures__/webpack-stats-current.json'),
+      path.resolve(__dirname, '../__fixtures__/webpack-stats-baseline.json'),
+    ],
+  });
+  return;
+}
 
 const args = yargs
-  .usage('Usage: webpack-bundle-stats [STATS_FILE]...')
+  .usage('Usage: $0 OPTIONS [STATS_FILE]...')
   .demandCommand(1, 'Webpack stats file path is required.')
+  .option('out-dir', {
+    description: 'Output directory',
+    default: DEFAULT_OUTPUT_DIR,
+  })
+  .option('html', {
+    description: 'Save HTML report',
+    boolean: true,
+    default: true,
+  })
+  .option('json', {
+    description: 'Save JSON data',
+    boolean: true,
+    default: false,
+  })
+  .option('demo', {
+    description: 'Generate demo reports',
+    default: false,
+  })
+  .alias('d', 'out-dir')
   .alias('h', 'help')
   .alias('v', 'version')
   .help()
   .argv;
 
-const artifactFilepaths = args._;
+const {
+  html, json, outDir, _: artifactFilepaths,
+} = args;
 
-Promise.all(artifactFilepaths.map(filepath => readJSON(filepath)))
-  .then(sources => sources.map(extractDataFromWebpackStats))
-  .then(createReport)
-  .then(output => writeFile(DEFAULT_OUTPUT_FILEPATH, output))
-  .catch((err) => {
-    console.error(err);
-  });
+run({
+  html, json, outDir, artifactFilepaths,
+});
